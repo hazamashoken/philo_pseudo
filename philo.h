@@ -6,7 +6,7 @@
 /*   By: tliangso <tliangso@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/05/13 23:31:56 by tliangso          #+#    #+#             */
-/*   Updated: 2023/05/14 02:00:29 by tliangso         ###   ########.fr       */
+/*   Updated: 2023/05/15 03:16:59 by tliangso         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,8 +39,8 @@ typedef struct s_philo
 {
 	int			id;
 	pthread_t	thread;
-	long		starttime;
-	long		lastmealtime;
+	time_t		starttime;
+	time_t		lastmealtime;
 	t_index		myfork;
 	t_index		notmyfork;
 	int			eat_count;
@@ -53,6 +53,7 @@ typedef struct s_env
 	t_data			data;
 	t_philo			*philo;
 	pthread_mutex_t	*forks;
+	pthread_mutex_t	*table;
 }	t_env;
 
 # define PHILO		env->philo
@@ -83,4 +84,6 @@ typedef struct s_env
 # define LOCKYOURFORK(id) pthread_mutex_lock(&FORK(PHILO[id].notmyfork))
 # define UNLOCKMYFORK(id) pthread_mutex_unlock(&FORK(PHILO[id].myfork))
 # define UNLOCKYOURFORK(id) pthread_mutex_unlock(&FORK(PHILO[id].notmyfork))
+# define LOCKTABLE pthread_mutex_lock(env->table)
+# define UNLOCKTABLE pthread_mutex_unlock(env->table)
 #endif

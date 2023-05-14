@@ -68,8 +68,15 @@ int	build_env(int ac, char **av, t_env *env)
 		env->data.num_eat = atoi(av[5]);
 	else
 		env->data.num_eat = -1;
+	env->table = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+	if (!env->table)
+		return (EXIT_FAILURE);
+	pthread_mutex_init(env->table, NULL);
 	return (EXIT_SUCCESS);
 }
+
+// fork[] -> env
+// int myfork -> env->philo[i]
 
 int	build_fork(t_env *env)
 {
@@ -118,7 +125,7 @@ int	waitsiwa(long time, t_env *env)
 	long	then;
 
 	then = gettimenow();
-	while (timediffnow(then) < time && !env->is_dead)
+	while (!env->is_dead && timediffnow(then) < time)
 		usleep(200);
 	return (env->is_dead);
 }
@@ -136,12 +143,14 @@ void	*routine(void *arg)
 	while (!env->is_dead && (PHILO[id].eat_count < EAT_CNT || EAT_CNT == -1))
 	{
 		PTHK(id);
+		LOCKTABLE;
 		if (env->is_dead || LOCKMYFORK(id))
 			return (NULL);
 		PMYF(id);
 		if (env->is_dead || LOCKYOURFORK(id))
 			return (NULL);
 		PNMYF(id);
+		UNLOCKTABLE;
 		PEAT(id);
 		PHILO[id].lastmealtime = gettimenow();
 		if (waitsiwa(TEAT, env))
@@ -151,6 +160,8 @@ void	*routine(void *arg)
 		if (env->is_dead || UNLOCKYOURFORK(id))
 			return (NULL);
 		++PHILO[id].eat_count;
+		if (PHILO[id].eat_count == EAT_CNT)
+			return (NULL);
 		PSLP(id);
 		if (waitsiwa(TSLP, env))
 			return (NULL);
@@ -170,10 +181,11 @@ int	release_philo(t_env *env)
 	i = 0;
 	while (i <= env->data.num_philo)
 	{
-		printf("===%d==%ld===\n", i, PHILO[i].starttime);
+		// printf("===%d==%ld===\n", i, PHILO[i].starttime);
 		PHILO[i].starttime = gettimenow();
 		env->current_id = i;
 		pthread_create(&PHILO[i].thread, NULL, routine, env);
+		pthread_detach(PHILO[i].thread);
 		usleep(10);
 		i += 2;
 		if (i >= env->data.num_philo && i % 2 == 0)
@@ -192,7 +204,11 @@ void	checkwho_die(t_env *env)
 		if (id >= DATA.num_philo)
 			id = 0;
 		if (timediffnow(PHILO[id].lastmealtime) > TDIE)
+		{
 			env->is_dead = 1;
+			PDIE(id);
+			return ;
+		}
 		++id;
 	}
 }
@@ -202,12 +218,6 @@ void	check_die(t_env *env)
 	int	i;
 
 	i = 0;
-	// end main relation with thread (don't wait for thread)
-	while (i < env->data.num_philo)
-	{
-		pthread_detach(PHILO[i].thread);
-		++i;
-	}
 
 	// infinite loop til somedie
 	checkwho_die(env);
@@ -234,27 +244,27 @@ int	main(int ac, char **av)
 	t_env	env;
 
 	// check args
-	printf("check arg\n");
+	// printf("check arg\n");
 	if (ac != 5 && ac != 6)
 		return (philo_error(NULL));
 
 	// build env from ac av
-	printf("build env\n");
+	// printf("build env\n");
 	if (build_env(ac, av, &env))
 		return (philo_error(NULL));
 
 	// build mutex for forks
-	printf("build forks\n");
+	// printf("build forks\n");
 	if (build_fork(&env))
 		return (philo_error(&env));
 	
 	//create thread
-	printf("create thread\n");
+	// printf("create thread\n");
 	if (release_philo(&env))
 		return (philo_error(&env));
 	
 	//free all *alloc
-	printf("clean up\n");
+	// printf("clean up\n");
 	cleanup_philo(&env);
 	return (EXIT_SUCCESS);
 }
